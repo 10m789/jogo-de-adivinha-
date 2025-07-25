@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jogo da Adivinhação Turbinado</title>
+
+  <!-- Manifesto PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <meta name="theme-color" content="#27ae60" />
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #43cea2, #185a9d);
+      color: #fff;
+      text-align: center;
+      padding: 50px 20px;
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 10px;
+      text-shadow: 1px 1px 5px rgba(0,0,0,0.3);
+    }
+    p {
+      font-size: 1.2rem;
+      margin-bottom: 30px;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+    input[type="number"] {
+      font-size: 1.5rem;
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: none;
+      width: 140px;
+      text-align: center;
+      margin-right: 15px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    button {
+      font-size: 1.5rem;
+      padding: 10px 25px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background-color: #27ae60;
+      color: white;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #2ecc71;
+    }
+    #resultado {
+      margin-top: 30px;
+      font-size: 2rem;
+      font-weight: 700;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+      min-height: 60px;
+    }
+    #tentativas {
+      margin-top: 15px;
+      font-size: 1.3rem;
+      font-weight: 600;
+      text-shadow: 1px 1px 5px rgba(0,0,0,0.3);
+    }
+    #recorde {
+      margin-top: 10px;
+      font-size: 1.1rem;
+      font-style: italic;
+      color: #d1f7d1;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+    #resetar {
+      margin-top: 40px;
+      padding: 12px 30px;
+      font-size: 1.5rem;
+      background-color: #e74c3c;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      color: white;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      display: none;
+      transition: background-color 0.3s ease;
+    }
+    #resetar:hover {
+      background-color: #ff6347;
+    }
+  </style>
+</head>
+<body>
+  <h1>Jogo da Adivinhação</h1>
+  <p>Estou pensando em um número de 1 a 100.<br>Tente adivinhar em até 10 tentativas!</p>
+
+  <div>
+    <input type="number" id="chute" min="1" max="100" />
+    <button id="botaoChutar">Chutar!</button>
+  </div>
+
+  <div id="resultado"></div>
+  <div id="tentativas"></div>
+  <div id="recorde"></div>
+  <button id="resetar">Jogar Novamente</button>
+
+  <!-- Sons -->
+  <audio id="somClique" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
+  <audio id="somVitoria" src="https://www.soundjay.com/human/sounds/applause-8.mp3"></audio>
+  <audio id="somDerrota" src="https://www.soundjay.com/misc/sounds/fail-buzzer-01.mp3"></audio>
+
+  <script>
+    // Variáveis do jogo
+    let numeroSecreto;
+    let tentativasRestantes;
+    let jogoAtivo;
+
+    // Elementos DOM
+    const chuteInput = document.getElementById('chute');
+    const botaoChutar = document.getElementById('botaoChutar');
+    const resultadoDiv = document.getElementById('resultado');
+    const tentativasDiv = document.getElementById('tentativas');
+    const recordeDiv = document.getElementById('recorde');
+    const resetarBtn = document.getElementById('resetar');
+
+    // Sons
+    const somClique = document.getElementById('somClique');
+    const somVitoria = document.getElementById('somVitoria');
+    const somDerrota = document.getElementById('somDerrota');
+
+    // Função para carregar recorde do localStorage
+    function carregarRecorde() {
+      const recorde = localStorage.getItem('recordeAdivinhacao');
+      if (recorde) {
+        recordeDiv.textContent = `🏆 Recorde: ${recorde} tentativas restantes`;
+      } else {
+        recordeDiv.textContent = '🏆 Ainda não há recorde.';
+      }
+    }
+
+    // Função para salvar recorde no localStorage
+    function salvarRecorde(tentativas) {
+      const recorde = localStorage.getItem('recordeAdivinhacao');
+      if (!recorde || tentativas > parseInt(recorde)) {
+        localStorage.setItem('recordeAdivinhacao', tentativas);
+        recordeDiv.textContent = `🏆 Novo recorde: ${tentativas} tentativas restantes!`;
+      }
+    }
+
+    // Iniciar o jogo
+    function iniciarJogo() {
+      numeroSecreto = Math.floor(Math.random() * 100) + 1;
+      tentativasRestantes = 10;
+      jogoAtivo = true;
+      resultadoDiv.textContent = '';
+      tentativasDiv.textContent = `Tentativas restantes: ${tentativasRestantes}`;
+      resetarBtn.style.display = 'none';
+      chuteInput.value = '';
+      chuteInput.focus();
+      carregarRecorde();
+    }
+
+    // Lógica do chute
+    function fazerChute() {
+      if (!jogoAtivo) return;
+
+      somClique.play();
+
+      let chute = Number(chuteInput.value);
+
+      if (!chute || chute < 1 || chute > 100) {
+        alert('Por favor, digite um número válido entre 1 e 100.');
+        return;
+      }
+
+      if (chute === numeroSecreto) {
+        resultadoDiv.textContent = '🎉 Parabéns! Você acertou!';
+        jogoAtivo = false;
+        salvarRecorde(tentativasRestantes);
+        somVitoria.play();
+        resetarBtn.style.display = 'inline-block';
+        return;
+      }
+
+      tentativasRestantes--;
+
+      if (tentativasRestantes === 0) {
+        resultadoDiv.textContent = `😢 Fim de jogo! O número era ${numeroSecreto}.`;
+        jogoAtivo = false;
+        somDerrota.play();
+        resetarBtn.style.display = 'inline-block';
+        return;
+      }
+
+      if (chute > numeroSecreto) {
+        resultadoDiv.textContent = '⬇️ Tente um número menor.';
+      } else {
+        resultadoDiv.textContent = '⬆️ Tente um número maior.';
+      }
+
+      tentativasDiv.textContent = `Tentativas restantes: ${tentativasRestantes}`;
+      chuteInput.value = '';
+      chuteInput.focus();
+    }
+
+    // Resetar jogo
+    function resetarJogo() {
+      iniciarJogo();
+    }
+
+    // Eventos
+    botaoChutar.addEventListener('click', fazerChute);
+    resetarBtn.addEventListener('click', resetarJogo);
+
+    // Enter no input faz o chute
+    chuteInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        fazerChute();
+      }
+    });
+
+    // Iniciar jogo ao carregar a página
+    iniciarJogo();
+  </script>
+</body>
+</html>
